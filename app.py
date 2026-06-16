@@ -1,67 +1,111 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
 
+from sklearn.preprocessing import LabelEncoder, StandardScaler
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler, LabelEncoder
-
-from sklearn.ensemble import RandomForestClassifier
 from sklearn.tree import DecisionTreeClassifier
-from sklearn.naive_bayes import GaussianNB
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.neighbors import KNeighborsClassifier
+from sklearn.naive_bayes import GaussianNB
+from sklearn.metrics import accuracy_score, confusion_matrix
 
 # ================= PAGE CONFIG =================
-st.set_page_config(
-    page_title="AI Churn Dashboard",
-    page_icon="📊",
-    layout="wide"
-)
+st.set_page_config(page_title="AI Churn Dashboard", layout="wide")
 
-# ================= MODERN UI (GRADIENT) =================
+# ================= MODERN UI (NEW DESIGN) =================
 st.markdown("""
 <style>
-    .main-title {
-        font-size: 45px;
-        font-weight: 900;
-        text-align: center;
-        background: linear-gradient(90deg,#00C9FF,#92FE9D);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-    }
 
-    .subtitle {
-        text-align: center;
-        font-size: 18px;
-        color: #aaa;
-    }
+/* BACKGROUND */
+[data-testid="stAppViewContainer"] {
+    background: linear-gradient(135deg, #0a0f1c, #111827, #0a0f1c);
+}
 
-    .card {
-        background: linear-gradient(135deg,#1f1c2c,#928dab);
-        padding: 20px;
-        border-radius: 15px;
-        color: white;
-        text-align: center;
-        box-shadow: 0px 4px 20px rgba(0,0,0,0.3);
-    }
+/* TITLE */
+.title {
+    font-size: 48px;
+    font-weight: 900;
+    text-align: center;
+    background: linear-gradient(90deg,#00f5ff,#8b5cf6,#ff00d4);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+/* SUBTITLE */
+.subtitle {
+    text-align: center;
+    color: #94a3b8;
+    font-size: 16px;
+    margin-bottom: 30px;
+}
+
+/* CARD */
+.card {
+    background: rgba(255,255,255,0.05);
+    backdrop-filter: blur(15px);
+    border-radius: 18px;
+    padding: 20px;
+    border: 1px solid rgba(255,255,255,0.1);
+    text-align: center;
+    transition: 0.3s;
+}
+
+.card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+}
+
+/* BUTTON */
+.stButton>button {
+    background: linear-gradient(90deg,#7c3aed,#06b6d4);
+    color: white;
+    border-radius: 12px;
+    padding: 10px 20px;
+    font-weight: bold;
+    border: none;
+}
+
+.stButton>button:hover {
+    transform: scale(1.05);
+}
+
+/* SIDEBAR */
+[data-testid="stSidebar"] {
+    background: linear-gradient(180deg,#0f172a,#1e293b);
+}
+
+/* TABS */
+div[data-testid="stTabs"] button {
+    color: #94a3b8 !important;
+}
+
+div[data-testid="stTabs"] button[aria-selected="true"] {
+    color: #22d3ee !important;
+    border-bottom: 2px solid #22d3ee !important;
+}
+
 </style>
 """, unsafe_allow_html=True)
 
 # ================= HEADER =================
-st.markdown("<div class='main-title'>AI Customer Churn Dashboard</div>", unsafe_allow_html=True)
-st.markdown("<div class='subtitle'>Multi Model ML System with Modern UI</div>", unsafe_allow_html=True)
+st.markdown('<div class="title">AI Customer Churn Dashboard</div>', unsafe_allow_html=True)
+st.markdown('<div class="subtitle">Modern ML System with Multi-Model Prediction & Analytics</div>', unsafe_allow_html=True)
 
-# ================= SIDEBAR =================
-st.sidebar.title("⚙ Navigation")
-uploaded_file = st.sidebar.file_uploader("Upload Dataset", type=["csv"])
+# ================= UPLOAD =================
+uploaded_file = st.file_uploader("📁 Upload CSV Dataset", type=["csv"])
 
-menu = st.sidebar.radio("Go To", ["🏠 Home", "📊 Analytics", "🔮 Prediction"])
-
-# ================= LOAD DATA =================
 if uploaded_file:
 
     df = pd.read_csv(uploaded_file)
 
-    # CLEANING
+    st.success("Dataset Loaded Successfully!")
+
+    st.dataframe(df.head())
+
+    # ================= CLEANING =================
     if 'customerID' in df.columns:
         df.drop('customerID', axis=1, inplace=True)
 
@@ -72,13 +116,14 @@ if uploaded_file:
 
     df['Churn'] = df['Churn'].map({'Yes': 1, 'No': 0})
 
-    # ENCODING
+    # ================= ENCODING =================
     cat_cols = df.select_dtypes(include=['object']).columns
     le = LabelEncoder()
 
     for col in cat_cols:
         df[col] = le.fit_transform(df[col])
 
+    # ================= SPLIT =================
     X = df.drop('Churn', axis=1)
     y = df['Churn']
 
@@ -89,50 +134,54 @@ if uploaded_file:
         X_scaled, y, test_size=0.2, random_state=42
     )
 
-    # MODELS
+    # ================= MODELS =================
     models = {
-        "Random Forest": RandomForestClassifier(),
         "Decision Tree": DecisionTreeClassifier(),
-        "Naive Bayes": GaussianNB(),
-        "KNN": KNeighborsClassifier()
+        "Random Forest": RandomForestClassifier(),
+        "KNN": KNeighborsClassifier(),
+        "Naive Bayes": GaussianNB()
     }
 
-    trained_models = {}
+    results = {}
 
     for name, model in models.items():
         model.fit(X_train, y_train)
-        trained_models[name] = model
+        acc = model.score(X_test, y_test)
+        results[name] = model
 
-    # ================= HOME =================
-    if menu == "🏠 Home":
+    # ================= TABS =================
+    tab1, tab2, tab3 = st.tabs(["📊 Dashboard", "📈 Analytics", "🔮 Prediction"])
 
-        st.markdown("### 📌 Dashboard Overview")
+    # ================= TAB 1 =================
+    with tab1:
 
         col1, col2, col3 = st.columns(3)
 
         with col1:
-            st.markdown(f"<div class='card'>Rows<br><h2>{df.shape[0]}</h2></div>", unsafe_allow_html=True)
+            st.markdown(f"<div class='card'><h3>Rows</h3><h2>{df.shape[0]}</h2></div>", unsafe_allow_html=True)
 
         with col2:
-            st.markdown(f"<div class='card'>Features<br><h2>{df.shape[1]-1}</h2></div>", unsafe_allow_html=True)
+            st.markdown(f"<div class='card'><h3>Features</h3><h2>{df.shape[1]-1}</h2></div>", unsafe_allow_html=True)
 
         with col3:
-            st.markdown("<div class='card'>Models<br><h2>4</h2></div>", unsafe_allow_html=True)
+            st.markdown(f"<div class='card'><h3>Models</h3><h2>4</h2></div>", unsafe_allow_html=True)
 
-    # ================= ANALYTICS =================
-    elif menu == "📊 Analytics":
+    # ================= TAB 2 =================
+    with tab2:
 
-        st.subheader("Dataset Preview")
-        st.dataframe(df.head())
+        st.subheader("Model Accuracy")
 
-        st.subheader("Statistics")
-        st.write(df.describe())
+        for name, model in models.items():
+            acc = model.score(X_test, y_test)
+            st.write(f"✔ {name} → {acc:.2f}")
 
-        st.subheader("Correlation")
-        st.write(df.corr())
+        st.subheader("Correlation Heatmap")
+        fig, ax = plt.subplots()
+        sns.heatmap(df.corr(), ax=ax, cmap="coolwarm")
+        st.pyplot(fig)
 
-    # ================= PREDICTION =================
-    elif menu == "🔮 Prediction":
+    # ================= TAB 3 =================
+    with tab3:
 
         st.subheader("Single Customer Prediction")
 
@@ -145,22 +194,23 @@ if uploaded_file:
                 val = st.number_input(col, value=float(df[col].mean()))
                 input_data.append(val)
 
-        model_name = st.selectbox("Select Model", list(models.keys()))
+        model_choice = st.selectbox("Select Model", list(models.keys()))
 
         if st.button("Predict Now 🚀"):
+
+            model = results[model_choice]
 
             input_array = np.array(input_data).reshape(1, -1)
             input_scaled = scaler.transform(input_array)
 
-            model = trained_models[model_name]
             prediction = model.predict(input_scaled)[0]
 
             st.markdown("---")
 
             if prediction == 1:
-                st.error(f"⚠ Customer WILL CHURN ({model_name})")
+                st.error(f"⚠ Customer WILL CHURN ({model_choice})")
             else:
-                st.success(f"✅ Customer WILL STAY ({model_name})")
+                st.success(f"✅ Customer WILL STAY ({model_choice})")
 
 else:
-    st.warning("⬅ Please upload dataset from sidebar")
+    st.warning("⬅ Upload dataset to start analysis")
